@@ -1,0 +1,429 @@
+-- Controle Sessões de Cinema - Postgresql - 2026
+-- configurando a data para o padrão brasileiro
+SET DATESTYLE TO POSTGRES, DMY ;
+-- tabela sala
+DROP TABLE IF EXISTS sala CASCADE ;
+CREATE TABLE sala (
+nome_sala CHAR(15) PRIMARY KEY ,
+tipo_audio VARCHAR(15) NOT NULL,
+tipo_projecao VARCHAR(15) NOT NULL,
+capacidade SMALLINT NOT NULL ,
+situacao_sala VARCHAR(15) NOT NULL ) ;
+SELECT * FROM sala ;
+-- DESCRIBE sala ; não tem no postgresql
+-- tabela filme
+DROP TABLE IF EXISTS filme CASCADE ;
+CREATE TABLE filme (
+cod_filme INTEGER ,
+titulo_original VARCHAR(50) NOT NULL,
+titulo_portugues VARCHAR(50) NOT NULL,
+idioma_original VARCHAR(20) NOT NULL,
+sinopse VARCHAR(200) NULL ,
+ano_lancamento SMALLINT NOT NULL,
+duracao_min SMALLINT NOT NULL,
+PRIMARY KEY (cod_filme) ) ;
+-- populando filme
+INSERT INTO filme VALUES ( 1 , 'The Avengers' , 'Os Vingadores',
+'Inglês', 'Loki se une ao Exército Chitauri e usa o 
+poder do Tesseract para viajar de Asgard a Midgard 
+para planejar a invasão da Terra e se tornar um rei.', 2012, 143) ;
+-- incluindo nova coluna em filme
+ALTER TABLE filme 
+ADD COLUMN genero VARCHAR(20) NULL ;
+SELECT * FROM filme ;
+-- atualizar o filme 1
+UPDATE filme
+SET genero = 'Ação'
+WHERE cod_filme = 1 ; 
+-- redefinir a coluna genero para NOT NULL
+ALTER TABLE filme ALTER COLUMN genero SET NOT NULL ;
+-- tabela horario
+DROP TABLE IF EXISTS horario CASCADE ;
+CREATE TABLE horario (
+cod_horario SMALLINT PRIMARY KEY ,
+horario TIME NOT NULL ) ;
+-- populando horário
+INSERT INTO horario VALUES ( 14, '14:00:00' ) ,
+              (18, '18:00:00') , (20, '20:00:00') ;
+SELECT * FROM horario ;
+-- tabela sessao de exibicao
+DROP TABLE IF EXISTS sessao CASCADE ;
+CREATE TABLE sessao (
+num_sessao SERIAL PRIMARY KEY ,
+dt_sessao DATE NOT NULL,
+publico_total SMALLINT NOT NULL DEFAULT 0 ,
+renda NUMERIC(10,2) NOT NULL DEFAULT 0.00 ,
+legendado BOOLEAN NOT NULL ,
+idioma_sessao VARCHAR(20) NOT NULL ,
+cod_filme INTEGER NOT NULL ,
+nome_sala CHAR(15) NOT NULL,
+cod_horario SMALLINT NOT NULL,
+FOREIGN KEY ( cod_filme) REFERENCES filme (cod_filme)
+                  ON DELETE RESTRICT ON UPDATE CASCADE , 
+FOREIGN KEY (nome_sala) REFERENCES sala(nome_sala)
+                  ON DELETE RESTRICT ON UPDATE CASCADE , 
+FOREIGN KEY ( cod_horario) REFERENCES horario ( cod_horario)
+                 ON DELETE RESTRICT ON UPDATE CASCADE  ) ;
+-- definindo um check para situação da sala : Em Operação, Manutenção, Desativada
+ALTER TABLE sala ADD CHECK
+ ( situacao_sala IN ( 'Em Operação', 'Manutenção', 'Desativada') ) ;
+-- populando sala
+INSERT INTO sala VALUES ( 'Spielberg', 'Dolby Stereo',
+'3D Max', 150, 'Em Operação' ) ; 
+SELECT * FROM sala ;
+-- populando sessão
+INSERT INTO sessao VALUES ( default, current_date, 
+default, default, 'T', 'Inglês', 1, 'Spielberg', 20 ) ; 
+SELECT * FROM sessao ;
+-- conferindo a sequencia 
+SELECT * FROM sessao_num_sessao_seq ; 
+-- populando sessão + uma amanhã
+INSERT INTO sessao VALUES ( default, current_date + 1, 
+default, default, 'F', 'Português', 1, 'Spielberg', 14 ) ; 
+-- testes da integridade referencial
+-- DELETE FROM filme
+-- WHERE cod_filme = 1 ;
+-- atualização
+UPDATE filme
+SET cod_filme = 33 WHERE cod_filme = 1 ;
+SELECT * FROM sessao ;
+-- tabela funcionario
+DROP TABLE IF EXISTS funcionario CASCADE ;
+CREATE TABLE funcionario (
+cod_funcional SMALLINT NOT NULL,
+nome_func VARCHAR(50) NOT NULL,
+num_ctps NUMERIC(11,0) NOT NULL UNIQUE,
+dt_admissao DATE NOT NULL ) ; 
+-- populando
+INSERT INTO funcionario VALUES ( 500, 'Maria de Abreu Sodré',
+123456, '20-03-2020' ) ; 
+SELECT * FROM funcionario ;
+-- definindo a PK
+ALTER TABLE funcionario ADD CONSTRAINT pk_funcionario 
+PRIMARY KEY ( cod_funcional) ;
+-- testando
+INSERT INTO funcionario VALUES ( 501, 'João de Assis Fontoura',
+987654 , current_date  - INTERVAL '33' YEAR ) ;
+-- tabela escala de trabalho sem as chaves
+DROP TABLE IF EXISTS escala_trabalho CASCADE ;
+CREATE TABLE escala_trabalho (
+cod_horario SMALLINT NOT NULL,
+cod_funcional SMALLINT NOT NULL,
+dia_semana CHAR(12) NOT NULL ,
+funcao VARCHAR(20) ) ;
+-- definindo as chaves
+ALTER TABLE escala_trabalho ADD CONSTRAINT fk_horario
+FOREIGN KEY ( cod_horario) REFERENCES horario
+                 ON DELETE CASCADE ON UPDATE CASCADE ;
+ALTER TABLE escala_trabalho ADD CONSTRAINT fk_funcionario
+FOREIGN KEY ( cod_funcional) REFERENCES funcionario
+                 ON DELETE CASCADE ON UPDATE CASCADE ;
+-- chave primária
+ALTER TABLE escala_trabalho ADD CONSTRAINT pk_escala
+PRIMARY KEY ( cod_horario, cod_funcional, dia_semana ) ;
+-- check em função
+ALTER TABLE escala_trabalho ADD CONSTRAINT chk_funcao
+CHECK ( funcao IN 
+('Atendente','Bilheteiro', 'Gerente', 'Projetista')) ;
+-- populando a escala de trabalho
+INSERT INTO escala_trabalho VALUES
+( 14, 500, 'domingo', 'Atendente') ,
+( 20, 500, 'terça-feira', 'Projetista') ,
+( 14, 501, 'domingo', 'Projetista') ,
+( 20, 501, 'terça-feira', 'Bilheteiro')  ;
+SELECT * FROM escala_trabalho ;
+-- adicionando colunas em funcionário
+ALTER TABLE funcionario ADD COLUMN sexo_func CHAR(1) NULL
+CHECK ( sexo_func IN ('M', 'F') ) ,
+ADD COLUMN fone_func NUMERIC(11,0) NULL,
+ADD COLUMN end_func VARCHAR(80) NULL ;
+SELECT * FROM funcionario ;
+-- renomeando uma coluna
+ALTER TABLE funcionario RENAME COLUMN 
+end_func TO endereco_func ; 
+-- adiciona e excluir uma coluna
+ALTER TABLE funcionario ADD COLUMN usa_oculos BOOLEAN DEFAULT 'F'  ;
+SELECT * FROM funcionario ; 
+ALTER TABLE funcionario DROP COLUMN usa_oculos  ; 
+-- atualizando sexo, fone e endereco
+-- Maria
+UPDATE funcionario
+SET sexo_func = 'F', fone_func = 1199887654,
+endereco_func = 'Rua Vergueiro, 7000 - Ipiranga - São Paulo' 
+WHERE cod_funcional = 500 ;
+-- João
+UPDATE funcionario
+SET sexo_func = 'M', fone_func = 1199776543 ,
+endereco_func  = 'Rua Santa Cruz, 2000 - Vila Mariana - São Paulo' 
+WHERE cod_funcional = 501 ;
+-- adicionando a coluna situação no funcionario
+ALTER TABLE funcionario ADD COLUMN situacao_func VARCHAR(15)
+NOT NULL CHECK ( situacao_func IN ( 'Em Operação', 'Desligado', 'Férias'))
+DEFAULT 'Em Operação' ;
+
+-- verifica a estrutura da tabela
+SELECT table_name AS "nome tabela", column_name AS "nome coluna" , 
+data_type AS "tipo dado", is_nullable "Permite nulo"
+FROM information_schema.columns
+WHERE table_name = 'filme' ;
+
+/****** Atividade 4 
+1-  Montar o script em SQL para a criação das tabelas Propaganda, Prêmio, Indicação, Premiação e Exibição Propaganda no SGBD Postgresql , com as seguintes características: 
+a) Considere as seguintes auto-numerações :
+	Código de Propaganda começando em 300.
+b) Ações referenciais ON DELETE e ON UPDATE
+c) Colunas que indicam instante de tempo com o tipo de dado correspondente (DATE ou TIMESTAMP). */
+
+-- tabela propaganda
+DROP TABLE IF EXISTS propaganda CASCADE ;
+CREATE TABLE propaganda (
+cod_propaganda SERIAL PRIMARY KEY,
+nome_propag VARCHAR(30) NOT NULL,
+descr_propag VARCHAR(100) NOT NULL,
+agencia VARCHAR(30) NOT NULL,
+produto_anunciado VARCHAR(20) NOT NULL,
+classifica_etaria CHAR(10) NOT NULL,
+duracao_segundos SMALLINT NOT NULL ) ;
+-- alterando o início da sequência
+ALTER SEQUENCE propaganda_cod_propaganda_seq RESTART WITH 300 ;
+SELECT * FROM propaganda_cod_propaganda_seq ;
+-- populando
+DELETE FROM propaganda ;
+INSERT INTO propaganda VALUES ( default, 'Cartão Vantagens' , 'Vantagens do cartão dos postos Ypiranga',
+'Marketing Legal', 'Postos Ypiranga', 'LIVRE', 35) ,
+( default, 'Mate a sede na copa' , 'Tomando Coca-cola na copa do mundo para matar a sede',
+'Ideias Criativas Publicidade', 'Coca-Cola', 'acima 10', 25) ;
+INSERT INTO propaganda VALUES ( default, 'Esportes na Copa' , 'Cobertura da Copa do Mundo',
+'Pelota de Ouro', 'Canal Esporte', 'LIVRE', 45) ;
+SELECT * FROM propaganda ;
+
+-- tabela exibição propaganda
+DROP TABLE IF EXISTS exibicao_propaganda CASCADE ;
+CREATE TABLE exibicao_propaganda (
+num_sessao INTEGER NOT NULL REFERENCES sessao
+           ON DELETE CASCADE ON UPDATE CASCADE ,
+cod_propaganda SMALLINT NOT NULL REFERENCES propaganda
+           ON DELETE CASCADE ON UPDATE CASCADE ,
+PRIMARY KEY ( num_sessao, cod_propaganda) ) ;
+-- populando
+SELECT * FROM sessao ; -- 2 sessoes
+INSERT INTO exibicao_propaganda VALUES ( 1, 300), (1, 301) , (2, 301), (2, 302) ;
+
+-- tabela Premio (Sigla_premio(PK), nome_premio)
+DROP TABLE IF EXISTS premio CASCADE ;
+CREATE TABLE premio (
+sigla_premio CHAR(6) PRIMARY KEY,
+nome_premio VARCHAR(30) NOT NULL ) ;
+
+INSERT INTO premio VALUES ( 'OSCAR', 'Oscar') ;
+INSERT INTO premio VALUES ( 'CANNES', 'Festival de Cannes') ;
+INSERT INTO premio VALUES ( 'URSO', 'Urso de ouro Festival Berlim') ;
+SELECT * FROM premio ;
+
+-- Premiacao ( Sigla_premio(PK)(FK), Cod_filme(PK)(FK), Categoria(PK), Ano_premiacao)
+-- indicação unificada com premiação, tipo define se indicação ou premiação
+DROP TABLE IF EXISTS premiacao_indicacao CASCADE ;
+CREATE TABLE premiacao_indicacao (
+sigla_premio CHAR(6) NOT NULL REFERENCES premio ON DELETE CASCADE ON UPDATE CASCADE , 
+cod_filme SMALLINT NOT NULL REFERENCES filme ON DELETE CASCADE ON UPDATE CASCADE, 
+categoria CHAR(15) NOT NULL, 
+premiacao_indicacao CHAR(9) NOT NULL
+           CHECK (premiacao_indicacao IN ('PREMIAÇÃO', 'INDICAÇÃO') ) ,
+ano_premiacao_indicacao SMALLINT NOT NULL,
+PRIMARY KEY ( sigla_premio, cod_filme, categoria) ) ;
+
+SELECT * FROM filme ;
+INSERT INTO premiacao_indicacao VALUES ( 'OSCAR', 33, 'Efeitos Visuais', 'INDICAÇÃO', 2013) ;
+SELECT * FROM premiacao_indicacao ;
+
+/** 2- Com o comando ALTER TABLE : 
+a) Inclua uma nova coluna em Prêmio : Nacionalidade  **/
+ALTER TABLE premio ADD COLUMN nacionalidade VARCHAR(15) NULL ;
+UPDATE premio SET nacionalidade = 'EUA' WHERE sigla_premio = 'OSCAR';
+UPDATE premio SET nacionalidade = 'França' WHERE sigla_premio = 'CANNES';
+UPDATE premio SET nacionalidade = 'Alemanha' WHERE sigla_premio = 'URSO';
+
+/** b) Crie as seguintes constraints de verificação: 
+		Classificação Etária em Propaganda: Livre , 10, 14 e 18 anos
+		Duração minutos em Propaganda ser positivo, maior que zero  **/
+SELECT * FROM propaganda ;
+-- classificação etária , primeiro convertendo para maíuscula o que está inserido
+UPDATE propaganda SET classifica_etaria = UPPER(classifica_etaria) ;
+ALTER TABLE propaganda ADD CHECK ( classifica_etaria IN ('LIVRE', 'ACIMA 10', 
+'ACIMA 14', 'ACIMA 18') ) ;
+-- duração segundos
+ALTER TABLE propaganda ADD CHECK ( duracao_segundos > 0 ) ;
+
+-- c) Renomeie alguma coluna;
+ALTER TABLE propaganda RENAME COLUMN agencia TO agencia_criacao ;
+
+-- d) Renomeie a tabela do relacionamento entre Sessão e Propaganda;
+ALTER TABLE exibicao_propaganda RENAME TO sessao_propaganda ;
+
+-- e) Altere o tipo de dados de alguma coluna CHAR para VARCHAR;
+ALTER TABLE premiacao_indicacao ALTER COLUMN categoria TYPE VARCHAR(20) ;
+
+/** 3 – Com os comandos INSERT E UPDATE :
+a)	Insira + 2 linhas em cada tabela criada em aula
+e 3 linhas nas tabelas criadas em 1 desta atividade;  **/
+-- filme
+SELECT * FROM filme ;
+INSERT INTO filme VALUES (30, 'The Godfather' , 'O Poderoso Chefão', 
+'Inglês' , 'Familia do mafioso Vito Corleone vindos da Itália' , 1972, 135 , 'Drama') ;
+INSERT INTO filme VALUES (31,'Central do Brasil', 'Central do Brasil',
+'Português' , 'Dora uma ex-professora viaja com o garoto Josué em busca da família dele' , 1998, 105,'Drama')  ;
+-- sala
+INSERT INTO sala VALUES ( 'Tarantino', 'Dolby Stereo',
+'3D Max', 130, 'Em Operação' ) ; 
+INSERT INTO sala VALUES ( 'Glauber Rocha', 'Dolby Stereo',
+'2D', 100, 'Em Operação' ) ; 
+-- sessao
+INSERT INTO sessao VALUES ( default, current_date + 2, 
+default, default, 'T', 'Inglês', 30 , 'Tarantino', 20 ) ; 
+INSERT INTO sessao VALUES ( default, current_date + 3, 
+default, default, 'F', 'Português', 31 , 'Glauber Rocha', 20 ) ; 
+SELECT * FROM sessao ;
+-- funcionario
+DELETE FROM funcionario WHERE cod_funcional = 503 ;
+INSERT INTO funcionario VALUES ( 502, 'Tereza Camargo Neves',
+554433, '20-06-2022', 'F', 11995533210, 'Rua Piaui, 255 - Higienópolis - São Paulo', default ) ; 
+INSERT INTO funcionario VALUES ( 503, 'Pedro Vasconcelos Junior',
+661100, '11-01-2018' , 'M', 1196456123, 'Rua Javari, 300 - Móoca - São Paulo', default) ;
+SELECT * FROM funcionario ;
+-- escala trabalho
+INSERT INTO escala_trabalho VALUES
+( 14, 502, 'quarta-feira', 'Atendente') ,
+( 20, 502, 'sexta-feira', 'Projetista') ,
+( 14, 503, 'quinta-feira', 'Projetista') ,
+( 20, 503, 'sábado', 'Bilheteiro')  ;
+SELECT * FROM escala_trabalho ;
+-- premiação
+INSERT INTO premiacao_indicacao VALUES ( 'OSCAR', 30 , 'Melhor Filme', 'PREMIAÇÃO', 1973) ;
+INSERT INTO premiacao_indicacao VALUES ( 'OSCAR', 30 , 'Melhor ator', 'PREMIAÇÃO', 1973) ;
+INSERT INTO premiacao_indicacao VALUES ( 'URSO', 31 , 'Melhor Filme', 'PREMIAÇÃO', 1998) ;
+INSERT INTO premiacao_indicacao VALUES ( 'URSO', 31 , 'Melhor Atriz', 'PREMIAÇÃO', 1998) ;
+INSERT INTO premiacao_indicacao VALUES ( 'OSCAR', 31 , 'Melhor Atriz', 'INDICAÇÃO', 1998) ;
+SELECT * FROM premiacao_indicacao ;
+
+-- b)	Atualize algum dado de Propaganda e algum dado de Prêmio.
+SELECT * FROM propaganda ;
+UPDATE propaganda SET agencia_criacao = 'Golden Sports' WHERE cod_propaganda = 302 ;
+SELECT * FROM premio ;
+UPDATE premio SET nome_premio = 'Festival Berlim Urso Ouro' WHERE sigla_premio = 'URSO';
+
+/*** aula 05/maio - DQL (Data Query Language) - Consultas com SELECT - funções caractere, data, LIKE
+Junção Interna - INNER JOIN ***/
+/*** Estrutura básica de um SELECT
+SELECT coluna1, coluna2, ..., colunaN - várias colunas
+FROM tabela1, tabela2, ..., tabelaN - várias tabelas
+WHERE condicao1 AND condicao2 OR ... condicaoN ; - várias condições ***/
+
+-- 1) Select mais básico de todos, mostrando todas as linhas e colunas
+SELECT * FROM Filme;
+SELECT * FROM sessao;
+-- 2) Discriminando as colunas e impondo filtro/condição
+SELECT titulo_original, duracao_min, genero, ano_lancamento FROM filme WHERE ano_lancamento <= 2000;
+-- 3) idem 2, mas para generos diferentes de drama ou duração superior a 100 min e utilizando função UPPER de caractere
+SELECT titulo_original, duracao_min, genero, ano_lancamento FROM filme WHERE (ano_lancamento <= 2000
+AND UPPER(genero) != 'DRAMA') OR duracao_min > 100;
+-- 4) Funções de formatação de caractere e apelido para colunas
+SELECT UPPER(nome_propag) AS maiusculo,
+LOWER(descr_propag) AS minusculo,
+INITCAP(classifica_etaria) AS "primeira maiusculo, resto minusculo"
+FROM propaganda WHERE duracao_segundos > 15;
+-- 5) Operador de concatenação ||, "Gruda" uma palavra na outra, eliminando o espaço entre elas
+SELECT UPPER (nome_func||' reside em '||endereco_func||' com fone: '|| CAST(fone_func AS CHAR)) AS "Dados principais"
+FROM funcionario WHERE dt_admissao > DATE('01-01-2000');
+/*** Incluindo a coluna data de nascimento no funcionário, e atualizando randomicamente ***/
+ALTER TABLE funcionario ADD COLUMN dt_nascto_func DATE NULL;
+SELECT * FROM funcionario;
+-- Função random, gera um número aleatório entre 0 e 1
+SELECT RANDOM();
+UPDATE funcionario SET dt_nascto_func = current_date - INTERVAL '22' YEAR where cod_funcional = 500;
+UPDATE funcionario SET dt_nascto_func = current_date - INTERVAL '25' YEAR where cod_funcional = 501;
+UPDATE funcionario SET dt_nascto_func = current_date - INTERVAL '30' YEAR where cod_funcional = 502;
+UPDATE funcionario SET dt_nascto_func = current_date - INTERVAL '35' YEAR where cod_funcional = 503;
+-- 6) Consultas com LIKE - busca aproximada
+-- Mostrar os funcionários com endereço no Ipiranga
+SELECT nome_func AS Funcionario, endereco_func AS Endereço
+FROM funcionario WHERE endereco_func ILIKE '%ipiranga%';
+-- 7) Funcionários que possuem 'João' no nome
+SELECT * FROM funcionario WHERE nome_func ILIKE '%jo_o%';
+-- Começa com João
+SELECT * FROM funcionario WHERE nome_func ILIKE 'jo_o %';
+-- Termina com Júnior
+SELECT * FROM funcionario WHERE nome_func ILIKE '% j_nior';
+-- Filme que tem na sinopse as palavras amor e ódio
+SELECT titulo_original, sinopse FROM filme WHERE sinopse NOT ILIKE '% amor %' AND sinopse NOT ILIKE '% _dio %';
+-- 8) Funções de data
+-- Data do sistema
+SELECT current_date AS Data_atual,
+current_timestamp AS "Data e hora atual",
+now() AS "Similar ao current_timestamp",
+localtimestamp AS Data_hora_local;
+-- 9) Extraindo partes da data hora EXTRACT
+SELECT EXTRACT (YEAR FROM current_date) AS Ano_atual,
+EXTRACT(MONTH FROM current_timestamp) AS Mês_atual,
+EXTRACT(HOUR FROM now()) + 2 AS Hora_atual_mais_2_horas,
+EXTRACT(WEEK FROM current_timestamp) AS Semana_atual;
+-- 10) Operador INTERVAL adiciona ou subtrai intervalos de tempo
+SELECT current_date + INTERVAL '3' MONTH AS "Daqui três meses",
+current_timestamp - INTERVAL '3' HOUR - INTERVAL '20' MINUTE AS "Três horas e 20min atrás";
+-- 11) Funcionários admitidos há mais de um ano
+SELECT * FROM funcionario WHERE dt_admissao <= current_date - INTERVAL '1' YEAR
+ORDER BY dt_admissao DESC;
+-- 12) Calculando há quanto tempo está na empresa
+SELECT nome_func, dt_admissao AS Admissão, TRUNC(((current_date - dt_admissao)/365.25),2) AS Tempo_Empresa
+FROM funcionario WHERE dt_admissao <= current_date - INTERVAL '1' YEAR
+ORDER BY Tempo_empresa DESC;
+SELECT nome_func, dt_admissao AS Admissão, dt_nascto_func AS Nascimento,
+TRUNC(((current_date - dt_admissao)/365.25),2) AS Tempo_Empresa,
+TRUNC(((current_date - dt_nascto_func)/365.25),6) AS Idade
+FROM funcionario WHERE dt_admissao <= current_date - INTERVAL '1' YEAR
+ORDER BY Tempo_empresa DESC;
+-- 13) Between - Funcionários entre 18 e 30 anos
+SELECT nome_func, dt_nascto_func AS Nascimento,
+TRUNC(((current_date - dt_nascto_func)/365.25),2) AS Idade
+FROM funcionario WHERE dt_nascto_func BETWEEN current_date - INTERVAL '30' YEAR AND current_date - INTERVAL '18' YEAR
+ORDER BY Idade DESC;
+-- 14) Consultas envolvendo mais de uma tabela - relacionar as tabelas entre si. Como? Comparando o valor de PK com FK
+SELECT sessao.num_sessao, sessao.dt_sessao, filme.titulo_original, filme.duracao_min
+FROM filme, sessao WHERE filme.cod_filme = sessao.cod_filme; -- Junção interna
+-- Outra forma com alias/apelido
+SELECT s.num_sessao, s.dt_sessao, f.titulo_original, f.duracao_min
+FROM filme AS f, sessao AS s WHERE f.cod_filme = s.cod_filme; -- Junção interna
+-- 15) Idem ao 14 com a sintaxe do INNER JOIN
+SELECT s.num_sessao, s.dt_sessao, f.titulo_original, f.duracao_min FROM filme AS f
+INNER JOIN sessao AS s ON (f.cod_filme = s.cod_filme) WHERE EXTRACT(MONTH FROM s.dt_sessao) =
+EXTRACT(MONTH FROM current_date); -- Colunas de junção PK <> FK
+
+/** Atividade 5 - Linguagem SQL **/
+SELECT * FROM filme;
+-- Professor, irei adicionar algumas colunas para atender corretamente o que está sendo solicitado.
+ALTER TABLE filme ADD COLUMN classificacao_etaria CHAR(5) NULL;
+ALTER TABLE filme ADD COLUMN estudio VARCHAR(20) NULL;
+UPDATE filme SET classificacao_etaria = '12' WHERE cod_filme = 33;
+UPDATE filme SET classificacao_etaria = '12' WHERE cod_filme = 31;
+UPDATE filme SET classificacao_etaria = '14' WHERE cod_filme = 30;
+UPDATE filme SET estudio = 'Marvel Studios' WHERE cod_filme = 33;
+UPDATE filme SET estudio = 'VideoFilmes' WHERE cod_filme = 31;
+UPDATE filme SET estudio = 'Paramount Pictures' WHERE cod_filme = 30;
+-- Concatenando os dados
+SELECT titulo_portugues||' foi lançado em '||ano_lancamento||' com classificação etária '||classificacao_etaria
+FROM filme WHERE genero = 'Drama';
+
+-- Busca aproximada utilizando o ILIKE
+SELECT titulo_original, estudio, ano_lancamento FROM filme WHERE titulo_portugues ILIKE '%Guerra%' OR
+titulo_portugues ILIKE '%Batalha%';
+
+-- Buscando dados das funcionários com mais de 22 anos
+SELECT *, TRUNC((current_date - dt_nascto_func) / 365.25) AS idade
+FROM funcionario WHERE dt_nascto_func < current_date - INTERVAL '22 years' AND sexo_func = 'F';
+
+-- Exibindo sessão
+SELECT sessao.num_sessao, sessao.dt_sessao, sala.tipo_audio FROM sessao, sala
+WHERE sala.tipo_audio != 'Dolby Surround';
+
+-- Exibindo filmes de romance
+SELECT * FROM filme WHERE sinopse NOT ILIKE '%Amor%' AND sinopse NOT ILIKE '%Paixão%' AND sinopse NOT ILIKE '%Romance%'
+AND genero = 'Romance' AND ano_lancamento BETWEEN 2010 AND 2019;
