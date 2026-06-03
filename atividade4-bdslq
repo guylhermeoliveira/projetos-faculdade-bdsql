@@ -1,0 +1,189 @@
+SET DATESTYLE TO POSTGRES, DMY ;
+DROP TABLE IF EXISTS sala CASCADE;
+CREATE TABLE sala (
+nome_sala CHAR(15) PRIMARY KEY,
+tipo_audio VARCHAR(15) NOT NULL,
+tipo_projecao VARCHAR(15) NOT NULL,
+capacidade SMALLINT NOT NULL,
+situacao_sala VARCHAR(15) NOT NULL
+);
+-- Alterando o tipo de CHAR para VARCHAR
+ALTER TABLE sala ALTER COLUMN nome_sala TYPE VARCHAR(15);
+DROP TABLE IF EXISTS filme CASCADE;
+CREATE TABLE filme (
+cod_filme INTEGER,
+titulo_original VARCHAR(50) NOT NULL,
+titulo_nacional VARCHAR(50) NOT NULL,
+idioma_original VARCHAR(20) NOT NULL,
+sinopse VARCHAR(500) NULL,
+ano_lancamento SMALLINT NOT NULL,
+duracao_minutos SMALLINT NOT NULL,
+PRIMARY KEY (cod_filme)
+);
+-- Adicionando constraint check para duração maior que 0
+ALTER TABLE filme ADD CONSTRAINT chk_duracao CHECK (duracao_minutos > 0);
+-- Renomeando coluna
+ALTER TABLE filme RENAME COLUMN sinopse TO sinopse_filme;
+INSERT INTO filme VALUES (1, 'The Avengers', 'Os Vingadores', 'Inglês', 'Nick Fury recruta Homem de Ferro, Capitão América, Thor, Hulk, Viúva Negra e Gavião Arqueiro. Eles devem impedir Loki de dominar a Terra com o cubo cósmico e seu exército alienígena.', 2012, 143);
+ALTER TABLE filme ADD COLUMN genero VARCHAR(20) NULL;
+SELECT * FROM filme;
+UPDATE filme
+SET genero = 'Ação'
+WHERE cod_filme = 1;
+ALTER TABLE filme ALTER COLUMN genero SET NOT NULL;
+DROP TABLE IF EXISTS horario CASCADE;
+CREATE TABLE horario (
+cod_horario SMALLINT PRIMARY KEY,
+horario TIME NOT NULL
+);
+INSERT INTO horario VALUES (14, '14:00:00'), (18, '18:00:00'), (20, '20:00:00');
+DROP TABLE IF EXISTS sessao_exibicao CASCADE;
+CREATE TABLE sessao_exibicao (
+num_sessao SERIAL PRIMARY KEY,
+dt_sessao DATE NOT NULL,
+publico_total SMALLINT NOT NULL DEFAULT 0,
+renda NUMERIC (10, 2) NOT NULL DEFAULT 0.00,
+legendado BOOLEAN NOT NULL,
+idioma_sessao VARCHAR (20),
+cod_filme INTEGER NOT NULL,
+nome_sala CHAR(15) NOT NULL,
+cod_horario SMALLINT NOT NULL,
+FOREIGN KEY (cod_filme) REFERENCES filme (cod_filme)
+ON DELETE RESTRICT ON UPDATE CASCADE,
+FOREIGN KEY (nome_sala) REFERENCES sala (nome_sala)
+ON DELETE RESTRICT ON UPDATE CASCADE,
+FOREIGN KEY (cod_horario) REFERENCES horario (cod_horario)
+ON DELETE RESTRICT ON UPDATE CASCADE
+);
+ALTER TABLE sala ADD CHECK (situacao_sala IN ('Em operação', 'Manutenção', 'Desativada'));
+INSERT INTO sala VALUES ('Spielberg', 'Dolby Stereo', '3D Max', '150', 'Em operação');
+INSERT INTO sessao_exibicao VALUES (DEFAULT, CURRENT_DATE, DEFAULT, DEFAULT, 'T', 'Inglês', '1', 'Spielberg', 20);
+INSERT INTO sessao_exibicao VALUES (DEFAULT, CURRENT_DATE + 1, DEFAULT, DEFAULT, 'T', 'Português', '1', 'Spielberg', 14);
+DROP TABLE IF EXISTS funcionario CASCADE;
+CREATE TABLE funcionario (
+cod_funcional SMALLINT NOT NULL,
+nome_func VARCHAR(50) NOT NULL,
+num_ctps NUMERIC(11, 0) NOT NULL UNIQUE,
+dt_admissao DATE NOT NULL
+);
+INSERT INTO funcionario VALUES (2108, 'Rebeca Hamany', '123456', '21-08-2022');
+INSERT INTO funcionario VALUES (1708, 'Guilherme Oliveira', '654321', '17-08-2022');
+ALTER TABLE funcionario ADD CONSTRAINT pk_funcionario PRIMARY KEY (cod_funcional);
+DROP TABLE IF EXISTS escala_trabalho CASCADE;
+CREATE TABLE escala_trabalho (
+cod_horario SMALLINT NOT NULL,
+cod_func SMALLINT NOT NULL,
+dia_semana CHAR(12) NOT NULL,
+funcao VARCHAR(20) NOT NULL
+);
+ALTER TABLE escala_trabalho ADD CONSTRAINT fk_horario FOREIGN KEY (cod_horario) REFERENCES horario
+ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE escala_trabalho ADD CONSTRAINT fk_funcionario FOREIGN KEY (cod_func) REFERENCES funcionario
+ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE escala_trabalho ADD CONSTRAINT pk_escala PRIMARY KEY (cod_horario, cod_func, dia_semana);
+ALTER TABLE escala_trabalho ADD CONSTRAINT chk_funcao CHECK (funcao IN ('Atendente', 'Bilheteiro', 'Lanterninha', 'Gerente', 'Projetista'));
+INSERT INTO escala_trabalho VALUES (14, 2108, 'Domingo', 'Projetista'), (20, 2108, 'Quarta-feira', 'Bilheteiro'),
+(14, 1708, 'Domingo', 'Lanterninha'), (20, 1708, 'Quarta-feira', 'Atendente');
+ALTER TABLE funcionario ADD COLUMN sexo_func CHAR(1) NULL CHECK (sexo_func IN ('M', 'F')),
+ADD COLUMN fone_func NUMERIC (11, 0) NULL,
+ADD COLUMN end_func VARCHAR(80) NULL;
+ALTER TABLE funcionario RENAME COLUMN end_func TO endereco_func;
+ALTER TABLE funcionario ADD COLUMN usa_oculos BOOLEAN DEFAULT 'F';
+ALTER TABLE funcionario DROP COLUMN usa_oculos;
+UPDATE funcionario
+SET sexo_func = 'M', fone_func = 11940028922, endereco_func = 'Rua Vergueiro, 7000 - Ipiranga - São Paulo' WHERE cod_funcional = 1708;
+UPDATE funcionario
+SET sexo_func = 'F', fone_func = 11982156906, endereco_func = 'Rua Três Rios, 500 - Bom Retiro - São Paulo' WHERE cod_funcional = 2108;
+ALTER TABLE funcionario ADD COLUMN situacao_func VARCHAR (15) NOT NULL CHECK (situacao_func IN ('Em operação', 'Desligado', 'Férias')) DEFAULT 'Em operação';
+DROP TABLE IF EXISTS premio CASCADE;
+CREATE TABLE premio (
+sigla_premio CHAR(6) PRIMARY KEY,
+nome_premio VARCHAR(30) NOT NULL
+);
+-- Adicionando nova coluna nacionalidade
+ALTER TABLE premio ADD COLUMN nacionalidade VARCHAR (20) NOT NULL;
+DROP TABLE IF EXISTS propaganda CASCADE;
+CREATE TABLE propaganda (
+codigo_propaganda SERIAL PRIMARY KEY,
+nome_propaganda VARCHAR(50) NOT NULL,
+descricao VARCHAR(100) NOT NULL,
+agencia VARCHAR(25) NOT NULL,
+produto_anunciado VARCHAR(30) NOT NULL,
+classificacao_etaria VARCHAR(15) NOT NULL,
+duracao_min SMALLINT NOT NULL
+);
+-- Adicionando constraint check para classificação etária
+ALTER TABLE propaganda ADD CONSTRAINT chk_classificacao CHECK (classificacao_etaria IN ('Livre', '10', '14', '18'));
+DROP TABLE IF EXISTS premiacao_filme CASCADE;
+CREATE TABLE premiacao_filme (
+sigla_premio CHAR(6) NOT NULL,
+codigo_filme INTEGER NOT NULL,
+categoria_premiacao CHAR(15) NOT NULL,
+ano_premiacao SMALLINT NOT NULL
+);
+ALTER TABLE premiacao_filme ADD CONSTRAINT fk_premio FOREIGN KEY (sigla_premio) REFERENCES premio
+ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE premiacao_filme ADD CONSTRAINT fk_codigo_filme FOREIGN KEY (codigo_filme) REFERENCES filme
+ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE premiacao_filme ADD CONSTRAINT pk_premiacao PRIMARY KEY (sigla_premio, codigo_filme, categoria_premiacao
+);
+DROP TABLE IF EXISTS indicacao CASCADE;
+CREATE TABLE indicacao (
+codigo_filme INTEGER NOT NULL,
+sigla_premio CHAR(6) NOT NULL,
+categoria_indicacao CHAR(15) NOT NULL,
+ano_indicacao SMALLINT NOT NULL
+);
+ALTER TABLE indicacao ADD CONSTRAINT fk_codigo_filme FOREIGN KEY (codigo_filme) REFERENCES filme
+ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE indicacao ADD CONSTRAINT fk_premio FOREIGN KEY (sigla_premio) REFERENCES premio
+ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE indicacao ADD CONSTRAINT pk_indicacao PRIMARY KEY (codigo_filme, sigla_premio, categoria_indicacao
+);
+DROP TABLE IF EXISTS propaganda_exibicao CASCADE;
+CREATE TABLE propaganda_exibicao (
+num_sessao INTEGER NOT NULL,
+codigo_propaganda INTEGER NOT NULL
+);
+ALTER TABLE propaganda_exibicao ADD CONSTRAINT fk_sessao FOREIGN KEY (num_sessao) REFERENCES sessao_exibicao
+ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE propaganda_exibicao ADD CONSTRAINT fk_propaganda FOREIGN KEY (codigo_propaganda) REFERENCES propaganda
+ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE propaganda_exibicao ADD CONSTRAINT pk_propaganda_exibicao PRIMARY KEY (num_sessao, codigo_propaganda
+);
+-- Alterando a auto numeração da coluna codigo_propaganda para 300
+ALTER SEQUENCE propaganda_codigo_propaganda_seq RESTART WITH 300;
+-- Renomeando a tabela de relacionamento
+ALTER TABLE propaganda_exibicao RENAME TO exibicao_propaganda;
+-- Adicionando 2 linhas adicionais nas tabelas criadas em sala de aula
+INSERT INTO funcionario VALUES (1912, 'Nico Robin', 901283, '06-02-2020', 'F', 11927437364, 'Rua Ohara, 67 - West Blue', 'Em operação');
+INSERT INTO funcionario VALUES (7654, 'Vinsmoke Sanji', 756289, '02-03-2021', 'M', 11936518247, 'Rua Baratie, 20 - East Blue', 'Em operação');
+INSERT INTO filme VALUES (2, 'Silence of the Lambs', 'O Silêncio dos Inocentes', 'Inglês', 'O Silêncio dos Inocentes segue a jovem agente do FBI que precisa entrevistar o canibal psiquiatra preso, Hannibal Lecter. O objetivo é traçar o perfil de um novo serial killer', 1991, 118, 'Terror, Suspense');
+INSERT INTO filme VALUES (3, 'The Shawshank Redemption', 'Um Sonho de Liberdade', 'Inglês', 'Um Sonho de Liberdade narra a história de Andy Dufresne, um banqueiro injustamente condenado à prisão perpétua pelo assassinato de sua esposa e seu amante. Ao ser enviado para a brutal Penitenciária de Shawshank, ele mantém a esperança, faz amizade com Red e usa sua inteligência para sobreviver à corrupção interna', 1994, 142, 'Drama');
+INSERT INTO horario VALUES (16, '16:00:00');
+INSERT INTO horario VALUES (13, '13:00:00');
+INSERT INTO sala VALUES ('Darabont', 'Dolby Stereo', '3D Max', 150, 'Em operação');
+INSERT INTO sala VALUES ('Eggers', 'Dolby Stereo', '4DX', 150, 'Em operação');
+INSERT INTO escala_trabalho VALUES (13, 1912, 'Domingo', 'Gerente');
+INSERT INTO escala_trabalho VALUES (16, 7654, 'Quarta-feira', 'Lanterninha');
+INSERT INTO sessao_exibicao VALUES (DEFAULT, CURRENT_DATE, DEFAULT, DEFAULT, 'T', 'Inglês', 2, 'Darabont', 16);
+INSERT INTO sessao_exibicao VALUES (DEFAULT, CURRENT_DATE, DEFAULT, DEFAULT, 'T', 'Português', 3, 'Eggers', 13);
+-- Adicionando 3 linhas nas tabelas feitas em casa
+INSERT INTO propaganda VALUES (DEFAULT, 'Pipoca é Janta', 'Divulgar uma nova pipoca feita com lemon pepper', 'Freela', 'Pipoca', 'Livre', 2);
+INSERT INTO propaganda VALUES (DEFAULT, 'O One Piece é real', 'Divulgar a obra prima One Piece', 'Crunchyroll', 'One Piece', '14', 3);
+INSERT INTO propaganda VALUES (DEFAULT, 'Hoje é dia de Cruzeiro', 'Divulgar o maior de Minas', 'BRAX', 'Cruzeiro Esporte Clube', 'Livre', 1);
+INSERT INTO premio VALUES ('OSCAR', 'Oscar', 'Estados Unidos');
+INSERT INTO premio VALUES ('BAFTA', 'BAFTA', 'Reino Unido');
+INSERT INTO premio VALUES ('HFPA', 'Globo de Ouro', 'Estados Unidos');
+INSERT INTO premiacao_filme VALUES ('OSCAR', 2, 'Melhor filme', 1992);
+INSERT INTO premiacao_filme VALUES ('BAFTA', 2, 'Melhor ator', 1992);
+INSERT INTO premiacao_filme VALUES ('HFPA', 2, 'Melhor atriz', 1992);
+INSERT INTO indicacao VALUES (3, 'OSCAR', 'Melhor filme', 1995);
+INSERT INTO indicacao VALUES (3, 'OSCAR', 'Melhor ator', 1995);
+INSERT INTO indicacao VALUES (3, 'BAFTA', 'Melhor roteiro', 1995);
+INSERT INTO exibicao_propaganda VALUES (1, 300);
+INSERT INTO exibicao_propaganda VALUES (2, 301);
+INSERT INTO exibicao_propaganda VALUES (3, 302);
+-- Atualizando dados de propaganda e prêmio
+UPDATE propaganda SET codigo_propaganda = 1999 WHERE codigo_propaganda = 301;
+UPDATE premio SET sigla_premio = 'AMPAS' WHERE sigla_premio = 'OSCAR';
